@@ -1,0 +1,90 @@
+configuration {
+display-drun: "Applications:";
+display-window: "Windows:";
+drun-display-format:"{icon} {name}";
+
+font: "JetBrainsMono Nerd Font Medium 10";
+modi: "run,drun";
+show-icons: true                           ;
+sort: true                                 ;
+case-sensitive: false                      ;
+sorting-method: "levenshtein";
+disable-history: true                      ;  /* Add this line */
+
+}
+
+@theme "/dev/null"
+
+* {
+bg:     #11121D;
+bg-alt: #444b6a;
+
+fg:     #FFFFFF;
+fg-lim: #d3d2d2ff;
+fg-alt: #787c99;
+
+background-color: @bg ;
+
+border: 0  ;
+margin: 0  ;
+padding: 0 ;
+spacing: 0 ;
+}
+
+window {
+width: 45%                            ;
+height:60%;
+border: 1px                           ;
+border-color: rgba(51, 204, 255, 0.9) ;
+padding: 10px 25px                     ;
+}
+
+element {
+padding: 12 0       ;
+text-color: @fg-lim ;
+}
+
+element selected {
+text-color: rgba(51, 204, 255, 0.9) ;
+}
+
+element-text {
+padding:0 0 0 20px        ;
+background-color: inherit ;
+text-color: inherit       ;
+vertical-align: 0.5       ;
+}
+
+element-icon {
+size: 30       ;
+}
+
+inputbar {
+children: [entry] ;
+}
+
+entry {
+font: "JetBrainsMono Nerd Font Medium 15";
+placeholder: " Search...";
+padding: 12                                ;
+text-color: @fg                            ;
+}
+
+listview {
+padding: 8 12         ;
+background-color: @bg ;
+columns: 1            ;
+lines: 8              ;
+}
+
+mainbox {
+margin: 4px                    ;
+background-color: @bg          ;
+children: [inputbar, listview] ;
+}
+prompt {
+
+enabled: true      ;
+padding: 12 0 0 12 ;
+text-color: @fg    ;
+}
