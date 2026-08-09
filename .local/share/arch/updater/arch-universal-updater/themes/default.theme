@@ -1,0 +1,20 @@
+# =============================================================================
+# Theme: Default
+# =============================================================================
+# Colors are 256-color palette indices used with ANSI escape \e[38;5;<N>m
+# =============================================================================
+
+THEME_NAME="Default"
+
+COLOR_BG=""            # empty = terminal default background
+COLOR_TEXT=253         # near-white
+COLOR_MUTED=245        # gray
+COLOR_BORDER=39        # blue
+COLOR_ACCENT=45        # cyan
+COLOR_SUCCESS=42       # green
+COLOR_WARNING=214      # orange
+COLOR_ERROR=196        # red
+
+COLOR_PACMAN=39        # blue (arch-ish)
+COLOR_YAY=214          # orange (AUR-ish)
+COLOR_FLATPAK=99       # purple (flatpak-ish)

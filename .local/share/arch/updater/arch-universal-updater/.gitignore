@@ -1,0 +1,9 @@
+# Runtime logs and cache (regenerated on each run)
+logs/*
+!logs/.gitkeep
+cache/*
+!cache/.gitkeep
+
+# Editor / OS cruft
+*.swp
+.DS_Store

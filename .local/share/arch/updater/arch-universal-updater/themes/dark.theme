@@ -1,0 +1,18 @@
+# =============================================================================
+# Theme: Dark (minimal, high-contrast)
+# =============================================================================
+
+THEME_NAME="Dark"
+
+COLOR_BG=""
+COLOR_TEXT=250
+COLOR_MUTED=240
+COLOR_BORDER=238
+COLOR_ACCENT=255
+COLOR_SUCCESS=34
+COLOR_WARNING=178
+COLOR_ERROR=160
+
+COLOR_PACMAN=255
+COLOR_YAY=178
+COLOR_FLATPAK=245

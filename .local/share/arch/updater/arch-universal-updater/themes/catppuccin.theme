@@ -1,0 +1,18 @@
+# =============================================================================
+# Theme: Catppuccin (Mocha palette approximation)
+# =============================================================================
+
+THEME_NAME="Catppuccin"
+
+COLOR_BG=""
+COLOR_TEXT=189         # text
+COLOR_MUTED=103        # overlay
+COLOR_BORDER=141       # mauve
+COLOR_ACCENT=117       # sapphire
+COLOR_SUCCESS=150       # green
+COLOR_WARNING=223       # peach
+COLOR_ERROR=210         # red/maroon
+
+COLOR_PACMAN=117
+COLOR_YAY=223
+COLOR_FLATPAK=141

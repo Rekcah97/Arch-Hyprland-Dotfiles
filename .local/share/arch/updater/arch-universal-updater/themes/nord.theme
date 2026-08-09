@@ -1,0 +1,18 @@
+# =============================================================================
+# Theme: Nord
+# =============================================================================
+
+THEME_NAME="Nord"
+
+COLOR_BG=""
+COLOR_TEXT=189         # nord6 approx
+COLOR_MUTED=59         # nord3 approx
+COLOR_BORDER=67        # nord9 approx (frost blue)
+COLOR_ACCENT=110       # nord8 approx (frost light blue)
+COLOR_SUCCESS=108       # nord14 approx (aurora green)
+COLOR_WARNING=179       # nord13 approx (aurora yellow)
+COLOR_ERROR=167         # nord11 approx (aurora red)
+
+COLOR_PACMAN=67
+COLOR_YAY=179
+COLOR_FLATPAK=139       # nord15 approx (aurora purple)
