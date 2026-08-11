@@ -81,7 +81,11 @@ check_battery() {
             set_power_profile "ondemand"
         fi
     elif [ "$STATUS" = "Discharging" ]; then
-        rm -f "$FLAG_DIR/notified_charge_limit" "$FLAG_DIR/notified_full"
+        rm -f "$FLAG_DIR/notified_charge_limit"
+        # Only clear notified_full flag if battery is below 100%
+        if [ "$CAPACITY" -lt 100 ]; then
+            rm -f "$FLAG_DIR/notified_full"
+        fi
     fi
 
     if [ "$STATUS" = "Discharging" ]; then
