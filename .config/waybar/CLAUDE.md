@@ -1,0 +1,1 @@
+- [Governor Button Fix](governor-button-handoff.md) — Fixed Waybar CPU governor button to use power-profiles-daemon backend instead of broken sudo+sysfs approach. Cycles between balanced/power-saver profiles via powerprofilesctl (no root needed). Added signal-based instant refresh and right-click reverse cycle.

@@ -1,0 +1,13 @@
+#!/bin/bash
+cfg="$HOME/.config/TMOG/Task Manager TMOG/settings.json"
+sed -i 's/"defaultPage": "[^"]*"/"defaultPage": "performance"/' "$cfg"
+tmog-task-manager "$@" &
+pid=$!
+# wait until TMOG exists AND has keyboard focus
+for i in $(seq 1 300); do
+  hyprctl activewindow | grep -q "class: com.tmog.taskmanager" && break
+  sleep 0.02
+done
+sleep 0.15
+wtype -M ctrl -M shift -k s -m shift -m ctrl
+wait $pid

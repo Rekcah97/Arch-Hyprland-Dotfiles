@@ -41,7 +41,7 @@
   "cpu": {
     "interval": 5,
     "format": "󰍛",
-    "on-click": "launch-or-focus-tui.sh btop",
+    "on-click": "/home/rekcah/.local/share/arch/bin/tmog",
   },
   "clock": {
     "format": "{:L%A %H:%M}",
@@ -63,16 +63,17 @@
   },
   "battery": {
     "format": "{capacity}% {icon}",
-    "format-discharging": "{icon}",
-    "format-charging": "{icon}",
-    "format-plugged": "",
+    "format-discharging": "{capacity}% {icon}",
+    "format-charging": "{capacity}% {icon}",
+    "format-plugged": "{capacity}% {icon}",
     "format-icons": {
       "charging": ["󰢜", "󰂆", "󰂇", "󰂈", "󰢝", "󰂉", "󰢞", "󰂊", "󰂋", "󰂅"],
       "default": ["󰁺", "󰁻", "󰁼", "󰁽", "󰁾", "󰁿", "󰂀", "󰂁", "󰂂", "󰁹"],
     },
     "format-full": "󰂅",
-    "tooltip-format-discharging": "{power:>1.0f}W↓ {capacity}%\n{timeTo}",
-    "tooltip-format-charging": "{power:>1.0f}W↑ {capacity}%\n{timeTo}",
+    "tooltip-format-discharging": "{capacity}%\n{timeTo} ↓",
+    "tooltip-format-charging": "{capacity}%\n{timeTo} ↑",
+    "tooltip-format-plugged": "{capacity}%\n{timeTo}",
     "interval": 5,
     "states": {
       "warning": 20,
@@ -127,5 +128,7 @@
     "tooltip": true,
     "format": "{}",
     "on-click": "/home/rekcah/.local/share/arch/bin/cycle-governor.sh",
+    "on-click-right": "/home/rekcah/.local/share/arch/bin/cycle-governor.sh reverse",
+    "signal": 1,
   },
 }

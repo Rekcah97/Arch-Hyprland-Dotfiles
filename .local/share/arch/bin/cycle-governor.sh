@@ -1,16 +1,29 @@
 #!/bin/bash
-LOGFILE="/tmp/cycle-governor-debug.log"
-echo "$(date '+%H:%M:%S') - cycle-governor.sh invoked" >> "$LOGFILE"
+# Cycle power-profiles-daemon profile: balanced <-> power-saver
+# Supports "reverse" argument for on-click-right
+set -u
 
-CURRENT=$(cat /sys/devices/system/cpu/cpu0/cpufreq/scaling_governor)
-echo "$(date '+%H:%M:%S') - current governor: $CURRENT" >> "$LOGFILE"
+CURRENT=$(powerprofilesctl get 2>/dev/null | awk '{print $1}' | sed 's/\*//')
 
-case "$CURRENT" in
-    performance) NEXT="ondemand" ;;
-    ondemand) NEXT="powersave" ;;
-    powersave) NEXT="performance" ;;
-    *) NEXT="ondemand" ;;
-esac
+if [[ "${1:-}" == "reverse" ]]; then
+    case "$CURRENT" in
+        balanced) NEXT="power-saver" ;;
+        power-saver) NEXT="balanced" ;;
+        *) NEXT="balanced" ;;
+    esac
+else
+    case "$CURRENT" in
+        balanced) NEXT="power-saver" ;;
+        power-saver) NEXT="balanced" ;;
+        *) NEXT="balanced" ;;
+    esac
+fi
 
-sudo -n /usr/local/bin/set-cpu-governor.sh "$NEXT" >> "$LOGFILE" 2>&1
-echo "$(date '+%H:%M:%S') - switched to: $NEXT" >> "$LOGFILE"
+if powerprofilesctl set "$NEXT" 2>/dev/null; then
+    logger -t waybar-governor "Switched to $NEXT"
+    # Trigger immediate Waybar refresh via signal (RTMIN+1 = custom signal 1)
+    pkill -RTMIN+1 waybar 2>/dev/null || true
+else
+    logger -t waybar-governor "Failed to switch to $NEXT"
+    exit 1
+fi

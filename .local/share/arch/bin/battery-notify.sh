@@ -2,9 +2,7 @@
 #
 # Battery notification script for Arch Linux / Waybar setups
 # Notifies on low battery (discharging) and charge limit (charging)
-#
-# Install: ~/.local/bin/battery-notify.sh
-# Run via systemd timer every ~30-60s (see setup instructions)
+# Run via systemd timer every ~30-60s
 
 # ---------------- CONFIG ----------------
 BATTERY="BAT0"                 # change if yours is BAT1
@@ -18,6 +16,8 @@ ENABLE_SOUND=true              # play a sound on critical warning
 LOG_FILE="$HOME/.local/share/battery-notify.log"
 # -----------------------------------------
 
+set -u
+
 BAT_PATH="/sys/class/power_supply/$BATTERY"
 FLAG_DIR="/tmp/battery-notify"
 mkdir -p "$FLAG_DIR"
@@ -27,9 +27,6 @@ if [ ! -d "$BAT_PATH" ]; then
     notify-send -u critical "Battery Script Error" "Battery path $BAT_PATH not found."
     exit 1
 fi
-
-CAPACITY=$(cat "$BAT_PATH/capacity")
-STATUS=$(cat "$BAT_PATH/status")   # Charging / Discharging / Full / Not charging
 
 log() {
     echo "$(date '+%Y-%m-%d %H:%M:%S') | $1" >> "$LOG_FILE"
@@ -42,35 +39,103 @@ play_sound() {
     fi
 }
 
+# Robust capacity read: trim whitespace, validate numeric
+read_capacity() {
+    local cap
+    cap=$(cat "$BAT_PATH/capacity" 2>/dev/null | tr -d '[:space:]')
+    [[ "$cap" =~ ^[0-9]+$ ]] || { log "Invalid capacity: '$cap'"; return 1; }
+    echo "$cap"
+}
+
+# Robust status read (trim only leading/trailing whitespace, keep internal spaces like "Not charging")
+read_status() {
+    local status
+    status=$(cat "$BAT_PATH/status" 2>/dev/null | sed 's/^[[:space:]]*//;s/[[:space:]]*$//')
+    [[ -n "$status" ]] || { log "Invalid status: empty"; return 1; }
+    echo "$status"
+}
+
+# Cross-check capacity against energy_now/energy_full
+read_energy_pct() {
+    local now full
+    now=$(cat "$BAT_PATH/energy_now" 2>/dev/null | tr -d '[:space:]')
+    full=$(cat "$BAT_PATH/energy_full" 2>/dev/null | tr -d '[:space:]')
+    [[ "$now" =~ ^[0-9]+$ && "$full" =~ ^[0-9]+$ && "$full" -gt 0 ]] || return 1
+    echo $(( now * 100 / full ))
+}
+
+# True critical: Discharging AND validated low capacity (debounced)
+is_truly_critical() {
+    local cap energy_pct
+    cap=$(read_capacity) || return 1
+    energy_pct=$(read_energy_pct) || return 1
+    [[ "$cap" -le "$LOW_CRITICAL" && "$energy_pct" -le "$LOW_CRITICAL" ]]
+}
+
+is_truly_low() {
+    local cap energy_pct
+    cap=$(read_capacity) || return 1
+    energy_pct=$(read_energy_pct) || return 1
+    [[ "$cap" -le "$LOW_WARNING" && "$energy_pct" -le "$LOW_WARNING" ]]
+}
+
+# Separate check for auto-suspend: uses AUTO_SUSPEND_AT threshold with energy cross-check
+is_truly_suspend() {
+    local cap energy_pct
+    cap=$(read_capacity) || return 1
+    energy_pct=$(read_energy_pct) || return 1
+    [[ "$cap" -le "$AUTO_SUSPEND_AT" && "$energy_pct" -le "$AUTO_SUSPEND_AT" ]]
+}
+
+maybe_notify() {
+    local urgency="$1"
+    local title="$2"
+    local body="$3"
+    local flag_file="$4"
+
+    if [ ! -f "$flag_file" ]; then
+        notify-send -u "$urgency" "$title" "$body"
+        log "$title at $(read_capacity)%"
+        touch "$flag_file"
+        return 0
+    fi
+    return 1
+}
+
+# ---- Main check ----
+capacity=$(read_capacity) || exit 1
+status=$(read_status) || exit 1
+
 # ---- Plug/unplug event detection ----
 PLUG_STATE_FILE="$FLAG_DIR/last_status"
 LAST_STATUS=""
 [ -f "$PLUG_STATE_FILE" ] && LAST_STATUS=$(cat "$PLUG_STATE_FILE")
 
-if [ "$NOTIFY_PLUG_EVENTS" = true ] && [ "$STATUS" != "$LAST_STATUS" ]; then
-    if [ "$STATUS" = "Charging" ] && [ "$LAST_STATUS" != "" ]; then
-        notify-send -u low "Charger Connected" "Battery at ${CAPACITY}%"
-        log "Charger connected at ${CAPACITY}%"
-    elif [ "$STATUS" = "Discharging" ] && [ "$LAST_STATUS" != "" ]; then
-        notify-send -u low "Charger Disconnected" "Battery at ${CAPACITY}%"
-        log "Charger disconnected at ${CAPACITY}%"
+if [ "$NOTIFY_PLUG_EVENTS" = true ] && [ "$status" != "$LAST_STATUS" ]; then
+    if [ "$status" = "Charging" ] && [ -n "$LAST_STATUS" ]; then
+        notify-send -u low "Charger Connected" "Battery at ${capacity}%"
+        log "Charger connected at ${capacity}%"
+    elif [ "$status" = "Discharging" ] && [ -n "$LAST_STATUS" ]; then
+        notify-send -u low "Charger Disconnected" "Battery at ${capacity}%"
+        log "Charger disconnected at ${capacity}%"
     fi
 fi
-echo "$STATUS" > "$PLUG_STATE_FILE"
+echo "$status" > "$PLUG_STATE_FILE"
 
 # ---- Reset flags on state change ----
-if [ "$STATUS" = "Charging" ]; then
+if [ "$status" = "Charging" ]; then
     rm -f "$FLAG_DIR/notified_low_warning" "$FLAG_DIR/notified_low_critical" "$FLAG_DIR/notified_suspend"
-elif [ "$STATUS" = "Discharging" ]; then
+elif [ "$status" = "Discharging" ]; then
     rm -f "$FLAG_DIR/notified_charge_limit" "$FLAG_DIR/notified_full"
 fi
 
 # ---- Discharging logic ----
-if [ "$STATUS" = "Discharging" ]; then
+if [ "$status" = "Discharging" ]; then
 
-    if [ "$AUTO_SUSPEND_AT" -gt 0 ] && [ "$CAPACITY" -le "$AUTO_SUSPEND_AT" ] && [ ! -f "$FLAG_DIR/notified_suspend" ]; then
-        notify-send -u critical "Battery Critical - Suspending" "Battery at ${CAPACITY}%. Suspending system to prevent data loss."
-        log "Auto-suspend triggered at ${CAPACITY}%"
+    # Auto-suspend uses its own threshold with energy cross-check
+    if [ "$AUTO_SUSPEND_AT" -gt 0 ] && is_truly_suspend && [ ! -f "$FLAG_DIR/notified_suspend" ]; then
+        notify-send -u critical "Battery Critical - Suspending" "Battery at ${capacity}%. Suspending system to prevent data loss."
+        log "Auto-suspend triggered at ${capacity}%"
         touch "$FLAG_DIR/notified_suspend"
         play_sound
         sleep 5
@@ -78,30 +143,27 @@ if [ "$STATUS" = "Discharging" ]; then
         exit 0
     fi
 
-    if [ "$CAPACITY" -le "$LOW_CRITICAL" ] && [ ! -f "$FLAG_DIR/notified_low_critical" ]; then
-        notify-send -u critical "Battery Critical" "Battery at ${CAPACITY}%! Plug in now."
-        log "Critical warning at ${CAPACITY}%"
-        touch "$FLAG_DIR/notified_low_critical"
-        play_sound
-    elif [ "$CAPACITY" -le "$LOW_WARNING" ] && [ ! -f "$FLAG_DIR/notified_low_warning" ]; then
-        notify-send -u normal "Battery Low" "Battery at ${CAPACITY}%. Consider plugging in."
-        log "Low warning at ${CAPACITY}%"
-        touch "$FLAG_DIR/notified_low_warning"
+    if is_truly_critical; then
+        maybe_notify critical "Battery Critical" "Battery at ${capacity}%! Plug in now." \
+            "$FLAG_DIR/notified_low_critical" && play_sound
+    elif is_truly_low; then
+        maybe_notify normal "Battery Low" "Battery at ${capacity}%. Consider plugging in." \
+            "$FLAG_DIR/notified_low_warning"
     fi
 fi
 
 # ---- Charging logic ----
-if [ "$STATUS" = "Charging" ]; then
+if [ "$status" = "Charging" ]; then
 
-    if [ "$CAPACITY" -ge "$CHARGE_LIMIT" ] && [ ! -f "$FLAG_DIR/notified_charge_limit" ]; then
-        notify-send -u normal "Charge Limit Reached" "Battery at ${CAPACITY}%. Consider unplugging for battery longevity."
-        log "Charge limit reminder at ${CAPACITY}%"
+    if [ "$capacity" -ge "$CHARGE_LIMIT" ] && [ ! -f "$FLAG_DIR/notified_charge_limit" ]; then
+        notify-send -u normal "Charge Limit Reached" "Battery at ${capacity}%. Consider unplugging for battery longevity."
+        log "Charge limit reminder at ${capacity}%"
         touch "$FLAG_DIR/notified_charge_limit"
     fi
 fi
 
 # ---- Full charge ----
-if [ "$NOTIFY_FULL" = true ] && [ "$CAPACITY" -ge 100 ] && [ ! -f "$FLAG_DIR/notified_full" ]; then
+if [ "$NOTIFY_FULL" = true ] && [ "$capacity" -ge 100 ] && [ ! -f "$FLAG_DIR/notified_full" ]; then
     notify-send -u normal "Battery Full" "Battery fully charged. You can unplug now."
     log "Full charge reached"
     touch "$FLAG_DIR/notified_full"
