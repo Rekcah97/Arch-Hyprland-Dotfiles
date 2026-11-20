@@ -33,12 +33,28 @@ window#waybar {
 }
 
 #cpu,
-#battery,
+#custom-battery,
 #pulseaudio,
 #custom-launcher,
 #power-profiles-daemon {
   min-width: 12px;
   margin: 0 7.5px;
+}
+
+#custom-battery.warning {
+  color: #f9e2af;
+}
+#custom-battery.critical {
+  color: #f38ba8;
+}
+#custom-battery.charging {
+  color: #a6e3a1;
+}
+#custom-battery.plugged {
+  color: #89b4fa;
+}
+#custom-battery.full {
+  color: #a6e3a1;
 }
 r #tray {
   margin-right: 16px;

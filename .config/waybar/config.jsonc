@@ -5,7 +5,13 @@
   "height": 26,
   "modules-center": ["hyprland/workspaces"],
   "modules-left": ["custom/launcher", "clock", "custom/cpu-governor"],
-  "modules-right": ["bluetooth", "network", "pulseaudio", "battery", "cpu"],
+  "modules-right": [
+    "bluetooth",
+    "network",
+    "pulseaudio",
+    "custom/battery",
+    "cpu"
+  ],
   "custom/launcher": {
     "format": "󰣇",
     "on-click": "rofi -show drun",
@@ -61,20 +67,12 @@
     "spacing": 1,
     "on-click": "launch-wifi.sh",
   },
-  "battery": {
-    "format": "{capacity}% {icon}",
-    "format-discharging": "{capacity}% {icon}",
-    "format-charging": "{capacity}% {icon}",
-    "format-plugged": "{capacity}% {icon}",
-    "format-icons": {
-      "charging": ["󰢜", "󰂆", "󰂇", "󰂈", "󰢝", "󰂉", "󰢞", "󰂊", "󰂋", "󰂅"],
-      "default": ["󰁺", "󰁻", "󰁼", "󰁽", "󰁾", "󰁿", "󰂀", "󰂁", "󰂂", "󰁹"],
-    },
-    "format-full": "󰂅",
-    "tooltip-format-discharging": "{capacity}%\n{timeTo} ↓",
-    "tooltip-format-charging": "{capacity}%\n{timeTo} ↑",
-    "tooltip-format-plugged": "{capacity}%\n{timeTo}",
+  "custom/battery": {
+    "exec": "~/.config/waybar/scripts/battery-tooltip.py",
+    "return-type": "json",
     "interval": 5,
+    "format": "{}",
+    "tooltip": true,
     "states": {
       "warning": 20,
       "critical": 10,
