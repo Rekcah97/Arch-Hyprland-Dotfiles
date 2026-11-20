@@ -10,7 +10,7 @@
     "network",
     "pulseaudio",
     "custom/battery",
-    "cpu"
+    "cpu",
   ],
   "custom/launcher": {
     "format": "󰣇",
@@ -71,6 +71,7 @@
     "exec": "~/.config/waybar/scripts/battery-tooltip.py",
     "return-type": "json",
     "interval": 5,
+    "signal": 8,
     "format": "{}",
     "tooltip": true,
     "states": {

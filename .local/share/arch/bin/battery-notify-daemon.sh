@@ -8,6 +8,7 @@
 
 # ---------------- CONFIG ----------------
 BATTERY="BAT0"
+AC_PATH="/sys/class/power_supply/ACAD"
 LOW_WARNING=20
 LOW_CRITICAL=10
 AUTO_SUSPEND_AT=5              # set to 0 to disable
@@ -34,10 +35,14 @@ log() {
 }
 
 play_sound() {
-    if [ "$ENABLE_SOUND" = true ]; then
-        canberra-gtk-play -i battery-caution 2>/dev/null || \
-        paplay /usr/share/sounds/freedesktop/stereo/dialog-warning.oga 2>/dev/null
-    fi
+    [ "$ENABLE_SOUND" = true ] || return
+    local f
+    case "${1:-}" in
+        plug)   f=/usr/share/sounds/freedesktop/stereo/power-plug.oga ;;
+        unplug) f=/usr/share/sounds/freedesktop/stereo/power-unplug.oga ;;
+        *)      f=/usr/share/sounds/freedesktop/stereo/dialog-warning.oga ;;
+    esac
+    ( pw-play "$f" 2>/dev/null || paplay "$f" 2>/dev/null ) 9>&- &
 }
 
 play_critical_sound() {
@@ -55,7 +60,9 @@ play_critical_sound() {
 
 set_power_profile() {
     local governor="$1"
+    [ "$(cat "$FLAG_DIR/governor" 2>/dev/null)" = "$governor" ] && return
     sudo -n /usr/local/bin/set-cpu-governor.sh "$governor" >/dev/null 2>&1
+    echo "$governor" > "$FLAG_DIR/governor"
     log "CPU governor set to $governor"
 }
 
@@ -122,28 +129,42 @@ maybe_notify() {
     return 1
 }
 
-check_battery() {
-    local capacity status
+WAYBAR_JSON="${XDG_RUNTIME_DIR:-/run/user/$(id -u)}/waybar-battery.json"
+WAYBAR_SCRIPT="$HOME/.config/waybar/scripts/battery-tooltip.py"
+
+update_waybar() {
+    python3 "$WAYBAR_SCRIPT" > "$WAYBAR_JSON.tmp" 2>/dev/null \
+        && mv "$WAYBAR_JSON.tmp" "$WAYBAR_JSON"
+    pkill -RTMIN+8 waybar
+}
+
+_check_battery() {
+    local capacity status ac LAST_AC
 
     capacity=$(read_capacity) || return
     status=$(read_status) || return
 
-    PLUG_STATE_FILE="$FLAG_DIR/last_status"
-    LAST_STATUS=""
-    [ -f "$PLUG_STATE_FILE" ] && LAST_STATUS=$(cat "$PLUG_STATE_FILE")
-
-    # Plug/unplug edge detection (react immediately on status change)
-    if [ "$NOTIFY_PLUG_EVENTS" = true ] && [ "$status" != "$LAST_STATUS" ]; then
-        if [ "$status" = "Charging" ] && [ -n "$LAST_STATUS" ]; then
+    ac=$(cat "$AC_PATH/online" 2>/dev/null)
+    LAST_AC=$(cat "$FLAG_DIR/last_ac" 2>/dev/null)
+    if [ "$NOTIFY_PLUG_EVENTS" = true ] && [ -n "$LAST_AC" ] && [ "$ac" != "$LAST_AC" ]; then
+        if [ "$ac" = "1" ]; then
             notify-send -u low "Charger Connected" "Battery at ${capacity}%"
-            log "Charger connected at ${capacity}%"
-            play_sound
-        elif [ "$status" = "Discharging" ] && [ -n "$LAST_STATUS" ]; then
+            play_sound plug
+        else
             notify-send -u low "Charger Disconnected" "Battery at ${capacity}%"
-            log "Charger disconnected at ${capacity}%"
-            play_sound
+            play_sound unplug
         fi
     fi
+    echo "$ac" > "$FLAG_DIR/last_ac"
+
+    update_waybar
+    if [ "$ac" != "$LAST_AC" ]; then
+        ( sleep 2; update_waybar ) 9>&- 8>&- &   # catch BAT0 settling
+    fi
+
+    local PLUG_STATE_FILE="$FLAG_DIR/last_status"
+    local LAST_STATUS=""
+    [ -f "$PLUG_STATE_FILE" ] && LAST_STATUS=$(cat "$PLUG_STATE_FILE")
     echo "$status" > "$PLUG_STATE_FILE"
 
     # Reset flags on state change
@@ -202,28 +223,37 @@ check_battery() {
     fi
 }
 
-# Cleanup on exit
+# Serialize runs: udev events and the poll loop can fire at the same moment,
+# and both would otherwise see the old last_ac and notify twice.
+check_battery() {
+    (
+        flock 8
+        _check_battery
+    ) 8>"$FLAG_DIR/check.lock"
+}
+
 cleanup() {
     log "Daemon stopping"
-    kill "$UDEV_PID" "$POLL_PID" 2>/dev/null
+    kill "$UDEV_PID" "$POLL_PID" "$WB_PID" 2>/dev/null
     exit 0
 }
 trap cleanup INT TERM
 
-# Run once immediately on start
 check_battery
 
-# Event-driven: udev kernel events (sub-50ms latency)
-udevadm monitor --subsystem-match=power_supply --kernel 2>/dev/null | while read -r line; do
+stdbuf -oL udevadm monitor --subsystem-match=power_supply --kernel 2>/dev/null | while read -r line; do
     check_battery
-done &
+done 9>&- &
 UDEV_PID=$!
 
-# Fallback poll (30s) for edge cases where udev misses events
 while sleep 30; do
     check_battery
-done &
+done 9>&- &
 POLL_PID=$!
 
-# Wait for both background processes
+while sleep 5; do
+    update_waybar
+done 9>&- &
+WB_PID=$!
+
 wait

@@ -56,6 +56,15 @@ window#waybar {
 #custom-battery.full {
   color: #a6e3a1;
 }
+
+#custom-battery.high {
+  color: #a6e3a1; /* green */
+}
+
+#custom-battery.low {
+  color: #f38ba8; /* red */
+}
+
 r #tray {
   margin-right: 16px;
 }

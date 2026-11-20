@@ -6,6 +6,7 @@ Reads battery energy from /sys/class/power_supply/BAT0/ and optionally
 RAPL CPU package power from /sys/class/powercap/intel-rapl/.
 
 Outputs JSON with text (formatted bar), class, percentage, and tooltip.
+Plug/unplug sounds and notifications are handled by battery-notify-daemon.sh.
 """
 
 import json
@@ -14,6 +15,8 @@ import sys
 import time
 from pathlib import Path
 from typing import Optional
+
+AC_PATH = Path("/sys/class/power_supply/ACAD")
 
 # Configuration
 BATTERY_PATH = Path("/sys/class/power_supply/BAT0")
@@ -95,6 +98,15 @@ def get_class(capacity: int, status: str) -> str:
     return "discharging"
 
 
+def get_level_class(capacity: int) -> Optional[str]:
+    """Extra CSS class by charge level: 'high' (>= 80%) or 'low' (< 20%)."""
+    if capacity >= 80:
+        return "high"
+    if capacity < 20:
+        return "low"
+    return None
+
+
 def format_time(seconds: float) -> str:
     """Format seconds as 'Xh Ym' or 'Xm' (no '0h' prefix)."""
     if seconds < 0:
@@ -108,7 +120,7 @@ def format_time(seconds: float) -> str:
 
 def escape_pango(text: str) -> str:
     """Escape text for Pango markup."""
-    return text.replace("&", "&").replace("<", "<").replace(">", ">")
+    return text.replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;")
 
 
 def compute_battery_watts(samples: list) -> Optional[float]:
@@ -205,27 +217,32 @@ def main() -> int:
     samples = state.get("samples", [])
     last_status = state.get("last_status")
 
+    # Trust the AC adapter over the (laggy) battery status
+    if not test_mode:
+        ac = read_int(AC_PATH / "online")
+        if ac == 1 and status == "Discharging":
+            status = "Charging"
+        elif ac == 0 and status == "Charging":
+            status = "Discharging"
+
     # Clear history on status change
     if last_status is not None and last_status != status:
         samples = []
 
-    # Add current sample (skip in test mode)
+    # Record current sample and persist state
     if not test_mode:
-        now = time.time()
-        samples.append((now, energy_now, status))
+        samples.append([time.time(), energy_now, status])
 
         # Trim to max samples
         if len(samples) > MAX_SAMPLES:
             samples = samples[-MAX_SAMPLES:]
 
-        # Update state
         state["samples"] = samples
         state["last_status"] = status
         save_state(state)
 
     # Compute battery watts (skip in test mode - return fixed values)
     if test_mode:
-        # Return test values based on status
         if status == "Charging":
             battery_watts = 33.4
         elif status == "Discharging":
@@ -322,10 +339,15 @@ def main() -> int:
     # Join with REAL newlines (not escaped), each line wrapped in <span> for Pango
     tooltip = "\n".join(f"<span>{escape_pango(line)}</span>" for line in tooltip_lines)
 
+    classes = [css_class]
+    level_class = get_level_class(capacity)
+    if level_class:
+        classes.append(level_class)
+
     output = {
         "text": bar_text,
         "percentage": capacity,
-        "class": css_class,
+        "class": classes,
         "tooltip": tooltip,
     }
 
