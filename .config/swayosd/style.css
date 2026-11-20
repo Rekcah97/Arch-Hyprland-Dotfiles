@@ -1,0 +1,50 @@
+window#osd {
+  padding: 0;
+  border-radius: 7px;
+  border: 1px solid #89b4fa;
+  background: alpha(#1e1e2e, 0.92);
+}
+
+window#osd #container {
+  margin: 0px;
+  padding: 12px 20px;
+}
+
+window#osd image {
+  color: #cdd6f4;
+  font-size: 15px;
+}
+
+window#osd label {
+  color: #cdd6f4;
+  font-family: "JetBrainsMono Nerd Font", sans-serif;
+  font-size: 14px;
+  min-height: 24px;
+  padding: 2px 0;
+}
+
+window#osd progressbar {
+  min-height: 8px;
+  border-radius: 999px;
+  background: transparent;
+  border: none;
+}
+
+window#osd trough {
+  min-height: inherit;
+  border-radius: inherit;
+  border: none;
+  background: alpha(#cdd6f4, 0.2);
+}
+
+window#osd progress {
+  min-height: inherit;
+  border-radius: inherit;
+  border: none;
+  background: #89b4fa;
+}
+
+window#osd progressbar:disabled,
+window#osd image:disabled {
+  opacity: 0.5;
+}
